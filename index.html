@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Laminitis Risk — now &amp; forecast</title>
+<!-- iPhone home-screen ("Add to Home Screen") -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="LaminRisk">
+<meta name="theme-color" content="#F2F4F1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#F2F4F1; --surface:#FFFFFF; --surface-2:#FBFCFB;
+    --ink:#1C2621; --muted:#5E6B62; --hair:#D9E0DA;
+    --brand:#2F6D5B; --brand-ink:#22503f;
+    --low:#3FA34D; --mid:#E8A73B; --high:#D0402E;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(28,38,33,.06), 0 8px 24px rgba(28,38,33,.05);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:Inter,system-ui,sans-serif; color:var(--ink);
+    background:var(--bg); line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:680px; margin:0 auto; padding:max(20px,env(safe-area-inset-top)) 16px 48px}
+  h1,h2,h3{font-family:"Space Grotesk",Inter,sans-serif; margin:0}
+  a{color:var(--brand-ink)}
+
+  /* header / location */
+  header{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap}
+  .brand{font-family:"Space Grotesk"; font-weight:700; font-size:19px; letter-spacing:-.01em}
+  .brand span{color:var(--brand)}
+  .locbar{display:flex; gap:8px; width:100%}
+  .locbar input{
+    flex:1; min-width:0; padding:11px 13px; border:1px solid var(--hair); border-radius:10px;
+    font:inherit; background:var(--surface); color:var(--ink);
+  }
+  .locbar input:focus{outline:2px solid var(--brand); outline-offset:1px; border-color:transparent}
+  button{font:inherit; cursor:pointer}
+  .btn{padding:11px 14px; border:1px solid var(--brand); background:var(--brand); color:#fff; border-radius:10px; font-weight:600}
+  .btn:hover{background:var(--brand-ink); border-color:var(--brand-ink)}
+  .btn.ghost{background:var(--surface); color:var(--brand-ink)}
+  .btn.ghost:hover{background:#eef3f0}
+  .btn.icon{padding:11px 12px}
+
+  .status{font-size:13px; color:var(--muted); min-height:18px; margin:8px 2px 0}
+  .status.err{color:var(--high)}
+
+  /* gauge / hero */
+  .hero{background:var(--surface); border:1px solid var(--hair); border-radius:var(--radius); box-shadow:var(--shadow); padding:22px 20px 20px; text-align:center; margin-top:14px}
+  .gauge{position:relative; width:236px; height:196px; margin:2px auto 0}
+  .gauge svg{display:block}
+  .gauge .readout{position:absolute; left:0; right:0; top:64px}
+  .gauge .value{font-family:"Space Grotesk"; font-weight:700; font-size:66px; line-height:1; letter-spacing:-.02em}
+  .gauge .of{font-size:13px; color:var(--muted); margin-top:2px}
+  .verdict{font-family:"Space Grotesk"; font-weight:600; font-size:22px; margin-top:6px}
+  .advice{font-size:15px; color:var(--ink); max-width:44ch; margin:8px auto 0}
+  .meta{font-size:12.5px; color:var(--muted); margin-top:12px}
+  .window{font-size:13px; color:var(--ink); background:var(--surface-2); border:1px solid var(--hair); border-radius:10px; padding:9px 12px; margin-top:12px; text-align:left}
+  .window b{font-weight:600}
+
+  .chips{display:flex; flex-wrap:wrap; gap:7px; justify-content:center; margin-top:14px}
+  .chip{font-size:12.5px; padding:5px 10px; border-radius:999px; border:1px solid var(--hair); background:var(--surface-2); color:var(--muted); display:inline-flex; gap:6px; align-items:center}
+  .chip.up{color:#8a2b20; background:#fbeeec; border-color:#f2d6d1}
+  .chip.down{color:#255c46; background:#e9f4ee; border-color:#cfe6da}
+  .chip .dot{width:7px; height:7px; border-radius:50%}
+
+  /* panels */
+  .panel{background:var(--surface); border:1px solid var(--hair); border-radius:var(--radius); box-shadow:var(--shadow); margin-top:14px; overflow:hidden}
+  .panel > summary{list-style:none; cursor:pointer; padding:15px 18px; display:flex; justify-content:space-between; align-items:center; font-family:"Space Grotesk"; font-weight:600; font-size:15.5px}
+  .panel > summary::-webkit-details-marker{display:none}
+  .panel > summary .caret{transition:transform .2s; color:var(--muted); font-size:13px}
+  .panel[open] > summary .caret{transform:rotate(180deg)}
+  .panel .body{padding:4px 18px 18px}
+  .sub{font-size:13px; color:var(--muted); margin:0 0 14px}
+
+  .field{margin-bottom:14px}
+  .field > label{display:block; font-size:13px; font-weight:600; margin-bottom:7px}
+  .seg{display:flex; flex-wrap:wrap; gap:6px}
+  .seg button{
+    border:1px solid var(--hair); background:var(--surface-2); color:var(--ink);
+    padding:8px 12px; border-radius:9px; font-size:13.5px;
+  }
+  .seg button[aria-pressed="true"]{background:var(--brand); border-color:var(--brand); color:#fff}
+  .resetrow{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:4px}
+  .resetrow .note{font-size:12.5px; color:var(--muted)}
+  .linkbtn{background:none; border:none; color:var(--brand-ink); text-decoration:underline; padding:0; font-size:13px}
+
+  /* chart */
+  .chartcard .body{padding:8px 12px 16px}
+  .chart-legend{display:flex; gap:16px; justify-content:center; font-size:12.5px; color:var(--muted); margin:2px 0 8px; flex-wrap:wrap}
+  .chart-legend span{display:inline-flex; align-items:center; gap:6px}
+  .chart-legend i{width:16px; height:0; border-top-width:3px; border-top-style:solid; display:inline-block}
+  .chartbox{position:relative; height:280px}
+
+  footer{margin-top:22px; font-size:12.5px; color:var(--muted)}
+  footer .disc{background:#fbf6ec; border:1px solid #eddfbf; color:#6b5a2e; border-radius:10px; padding:11px 13px; margin-bottom:12px}
+  .method{color:var(--ink); font-size:13.5px; line-height:1.55}
+  .method h2{font-family:"Space Grotesk"; font-size:20px; margin:14px 0 4px; letter-spacing:-.01em}
+  .method h3{font-family:"Space Grotesk"; font-size:15px; margin:18px 0 6px}
+  .method p{margin:8px 0}
+  .method ul{margin:8px 0; padding-left:18px}
+  .method li{margin:5px 0}
+  .method .lead{color:var(--muted)}
+  .method table{width:100%; border-collapse:collapse; margin:10px 0; font-size:13px}
+  .method th,.method td{text-align:left; padding:6px 9px; border-bottom:1px solid var(--hair); vertical-align:top}
+  .method th{color:var(--muted); font-weight:600}
+  .method td.n{white-space:nowrap; font-weight:600; color:var(--brand-ink)}
+  .method .formula{background:var(--surface-2); border:1px solid var(--hair); border-radius:8px; padding:10px 12px; margin:9px 0; font-weight:500}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">Lamin<span>Risk</span></div>
+    <div class="locbar">
+      <input id="loc" type="text" placeholder="Postcode or place (e.g. CW4 8HJ or Cranage)" autocomplete="off" enterkeyhint="search">
+      <button class="btn" id="go">Check</button>
+      <button class="btn ghost icon" id="geo" title="Use my location" aria-label="Use my location">◎</button>
+    </div>
+    <div class="status" id="status">Enter a location to get the current risk.</div>
+  </header>
+
+  <!-- NOW gauge -->
+  <section class="hero" id="hero" hidden>
+    <div class="gauge">
+      <svg viewBox="0 0 236 196" width="236" height="196" aria-hidden="true">
+        <path id="track" fill="none" stroke="#E4E9E4" stroke-width="18" stroke-linecap="round"/>
+        <path id="arc"   fill="none" stroke="#3FA34D" stroke-width="18" stroke-linecap="round"/>
+      </svg>
+      <div class="readout">
+        <div class="value" id="gVal">–</div>
+        <div class="of">out of 100</div>
+      </div>
+    </div>
+    <div class="verdict" id="gVerdict">—</div>
+    <p class="advice" id="gAdvice"></p>
+    <div class="chips" id="chips"></div>
+    <div class="window" id="window"></div>
+    <div class="meta" id="meta"></div>
+  </section>
+
+  <!-- horse adjustment -->
+  <details class="panel" id="horsePanel" hidden>
+    <summary>Adjust for your horse <span class="caret">▾</span></summary>
+    <div class="body">
+      <p class="sub">Defaults show the risk for an average horse. Set what applies — the number and chart update live. The horse's own metabolic status matters more than the weather.</p>
+      <div id="controls"></div>
+      <div class="resetrow">
+        <span class="note" id="multNote">Adjustment: ×1.00 (average horse)</span>
+        <button class="linkbtn" id="reset">Reset to average</button>
+      </div>
+    </div>
+  </details>
+
+  <!-- today hourly -->
+  <details class="panel chartcard" id="hourlyPanel" open hidden>
+    <summary>Today, hour by hour <span class="caret">▾</span></summary>
+    <div class="body">
+      <div class="chart-legend">
+        <span><i style="border-color:var(--brand)"></i>Your horse</span>
+        <span><i style="border-color:#9fb3a8; border-top-style:dashed"></i>Grass only (weather)</span>
+        <span>▏now</span>
+      </div>
+      <div class="chartbox" style="height:220px"><canvas id="chartHourly"></canvas></div>
+    </div>
+  </details>
+
+  <!-- forecast chart -->
+  <details class="panel chartcard" id="chartPanel" open hidden>
+    <summary>Last 7 days &amp; 7-day forecast <span class="caret">▾</span></summary>
+    <div class="body">
+      <div class="chart-legend">
+        <span><i style="border-color:var(--brand)"></i>Your horse</span>
+        <span><i style="border-color:#9fb3a8; border-top-style:dashed"></i>Grass only (weather)</span>
+        <span>Bands: <b style="color:var(--low)">low</b> / <b style="color:var(--mid)">mod</b> / <b style="color:var(--high)">high</b></span>
+      </div>
+      <div class="chartbox"><canvas id="chart"></canvas></div>
+    </div>
+  </details>
+
+  <footer>
+    <div class="disc" id="disc">
+      <b>Guidance only — not veterinary advice.</b> This estimates grass-sugar risk from public weather data; it does not measure actual grass sugars or your horse's health. If a horse shows signs of laminitis, or you're managing a diagnosed metabolic horse, speak to your vet.
+    </div>
+    <section class="method">
+      <h2>How it works</h2>
+      <p class="lead">This tool estimates how much sugar (water-soluble carbohydrate) your grass is likely to be carrying now and over the week ahead, then scales that by how susceptible your horse is. It reads live weather for your location, works out a grass-sugar score, and turns it into a 1–100 risk figure. It does not measure your grass or your horse — it infers risk from the weather patterns known to drive grass sugar.</p>
+
+      <h3>What it uses</h3>
+      <ul>
+        <li><b>Weather</b> — <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (free, no account): daily high and low temperature, sunshine hours, day length and rainfall, plus the current temperature, for the last 7 days and the 7 days ahead, in your local time.</li>
+        <li><b>Location</b> — UK postcodes via <a href="https://postcodes.io" target="_blank" rel="noopener">postcodes.io</a> (a full postcode, or just the area code like CW4), any place name via Open-Meteo, or your device's location.</li>
+        <li><b>Your horse</b> — the settings you choose, saved in your browser on this device so they're ready next time.</li>
+      </ul>
+
+      <h3>Why weather predicts grass sugar</h3>
+      <p>Grass makes sugar by day through photosynthesis and burns it off through respiration — but respiration roughly stops below 5&nbsp;°C. So the classic danger is a <b>cold or frosty night followed by a bright day</b>: sugar is produced but not used, and it builds up. Drought stress and a flush of new growth after rain also push sugars up.</p>
+
+      <h3>The daily grass score (0–100)</h3>
+      <p>Every day, past or forecast, gets a score built from two main parts plus adjustments:</p>
+      <div class="formula">score = 0.45 × night factor + 0.40 × sunshine factor + adjustments</div>
+      <table>
+        <tr><th>Overnight low</th><th>Night factor</th></tr>
+        <tr><td>Below 0&nbsp;°C (frost)</td><td class="n">100</td></tr>
+        <tr><td>0 to 5&nbsp;°C</td><td class="n">80</td></tr>
+        <tr><td>5 to 10&nbsp;°C</td><td class="n">45</td></tr>
+        <tr><td>10&nbsp;°C or warmer</td><td class="n">20</td></tr>
+      </table>
+      <p>The <b>sunshine factor</b> is the share of daylight that was sunny (sunshine hours ÷ day length), scaled 0–100. Then two bonuses: <b>+15</b> when a frosty night (below 2&nbsp;°C) meets a bright day, and <b>+5</b> on a cold, dull-growth day (high below 8&nbsp;°C with some sun). The total is capped at 100.</p>
+
+      <h3>The "now" figure</h3>
+      <p>It starts from the recent grass score (today weighted 70%, yesterday 30%), then applies:</p>
+      <ul>
+        <li><b>Rainfall over 7 days</b> — +8 if very dry (under 5&nbsp;mm, drought stress), and +8 for a dry-then-wet growth flush.</li>
+        <li><b>Time of day</b> — a factor from about 0.85 near 5&nbsp;am (sugars lowest) up to 1.05 near 4&nbsp;pm (highest). After a cold night (low below 5&nbsp;°C) it never dips below 1.0, because sugars don't fall overnight then.</li>
+        <li><b>Your horse</b> — the multiplier below.</li>
+      </ul>
+      <div class="formula">now risk = grass level × time-of-day × horse multiplier &nbsp;(shown 1–100)</div>
+
+      <h3>Today, hour by hour</h3>
+      <p>The hourly chart takes the same grass level as the gauge and shapes it across 24 hours with that time-of-day factor, marking the current hour. On a mild day you'll see a low-morning, afternoon-peak curve; after a cold night the line stays flat and high — the sign that the early-morning turnout window isn't safe that day.</p>
+
+      <h3>Last 7 days &amp; forecast</h3>
+      <p>Each day's grass score is multiplied by your horse's factor and plotted for the past week and the week ahead, split by the "today" line. The dashed line is the grass-only (weather) score, for comparison.</p>
+
+      <h3>Adjusting for your horse</h3>
+      <p>Each choice adds or removes points; the total becomes a multiplier of <b>1 + points ÷ 100</b>, held between <b>×0.3</b> and <b>×1.8</b>. An average horse is ×1.00. The horse's own metabolism matters more than the weather, which is why these can move the number so much.</p>
+      <table>
+        <tr><th>Factor</th><th>Points</th></tr>
+        <tr><td>Previous laminitis — in the past / recent</td><td class="n">+25 / +40</td></tr>
+        <tr><td>EMS or insulin dysregulation — unsure / yes</td><td class="n">+8 / +25</td></tr>
+        <tr><td>PPID (Cushing's)</td><td class="n">+20</td></tr>
+        <tr><td>Body condition — overweight / obese</td><td class="n">+10 / +20</td></tr>
+        <tr><td>Type — native good-doer / TB hard-keeper</td><td class="n">+12 / −12</td></tr>
+        <tr><td>In regular work</td><td class="n">−8</td></tr>
+        <tr><td>Grazing restriction (muzzle, strip, bare paddock)</td><td class="n">−15</td></tr>
+      </table>
+
+      <h3>What the bands mean</h3>
+      <table>
+        <tr><td class="n" style="color:var(--low)">1–25</td><td>Low — normal grazing is fine for most horses.</td></tr>
+        <tr><td class="n" style="color:var(--mid)">26–50</td><td>Moderate — watch at-risk horses; shorten turnout or muzzle.</td></tr>
+        <tr><td class="n" style="color:var(--high)">51–75</td><td>High — restrict grazing for at-risk horses.</td></tr>
+        <tr><td class="n" style="color:var(--high)">76–100</td><td>Very high — keep laminitis-prone horses off grass.</td></tr>
+      </table>
+
+      <h3>Limits — please read</h3>
+      <ul>
+        <li>No public source measures actual grass sugar; this is an <b>inference from weather</b>, not a measurement. Forage sugar testing is the gold standard for a known at-risk horse.</li>
+        <li>The thresholds and weights are <b>informed estimates</b>, not calibrated against laminitis outcome data.</li>
+        <li>The real-world driver is the horse's own metabolism (insulin dysregulation); the app can only approximate susceptibility from what you tell it.</li>
+        <li><b>Guidance only, not veterinary advice.</b> If a horse shows signs of laminitis, or you're managing a diagnosed metabolic horse, speak to your vet.</li>
+      </ul>
+    </section>
+  </footer>
+
+</div>
+
+<script>
+/* ============================ RISK MODEL ============================ */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+// One day's grass-sugar score (0-100) from that day's weather.
+function dailyGrassScore(d){                     // d:{tmin,tmax,sunFraction}
+  let night;                                     // respiration / accumulation
+  if(d.tmin < 0)      night=100;                 // frost: sugar locked in
+  else if(d.tmin < 5) night=80;                  // below growth threshold
+  else if(d.tmin <10) night=45;
+  else                night=20;                  // mild night: grass uses sugar
+  const sun = clamp(d.sunFraction,0,1)*100;      // production
+  let s = 0.45*night + 0.40*sun;                 // base (max ~85)
+  if(d.tmin < 2 && d.sunFraction > 0.5) s += 15; // frost + sun synergy
+  if(d.tmax < 8 && d.sunFraction > 0.3) s += 5;  // cold dormant day, sugar held
+  return clamp(s,0,100);
+}
+
+// Precipitation context across the recent window -> small additive modifier.
+function precipMod(recent7mm, firstHalfMm, secondHalfMm, latterMildWarm){
+  let m=0;
+  if(recent7mm < 5) m += 8;                                   // drought stress
+  if(firstHalfMm < 3 && secondHalfMm > 10 && latterMildWarm) m += 8; // growth flush
+  return m;
+}
+
+// Diurnal factor for the "now" reading (only helps on mild nights).
+function diurnalFactor(hour, lastNightMin){
+  const t = ((hour - 4) + 24) % 24;              // hours since ~4am trough
+  const frac = 0.5 - 0.5*Math.cos(2*Math.PI*t/24); // 0 at 4am, 1 at 4pm
+  let f = 0.85 + 0.20*frac;                       // 0.85 .. 1.05
+  if(lastNightMin < 5) f = Math.max(f, 1.0);      // cold night: no dawn benefit
+  return f;
+}
+
+// Horse susceptibility -> multiplier (0.3 .. 1.8), default 1.0.
+const HORSE_FIELDS=[
+  {key:'history', label:'Previous laminitis', opts:[['none','None',0],['historic','In the past',25],['recent','Recent / prone',40]]},
+  {key:'ems',     label:'EMS / insulin dysregulation', opts:[['no','No',0],['unknown',"Don't know",8],['yes','Yes',25]]},
+  {key:'ppid',    label:"PPID (Cushing's)", opts:[['no','No',0],['yes','Yes',20]]},
+  {key:'bcs',     label:'Body condition', opts:[['ideal','Ideal',0],['over','Overweight',10],['obese','Obese',20]]},
+  {key:'type',    label:'Type', opts:[['normal','Average',0],['native','Native / good-doer',12],['tb','TB / hard-keeper',-12]]},
+  {key:'work',    label:'In regular work', opts:[['no','Little/none',0],['yes','Yes',-8]]},
+  {key:'graze',   label:'Grazing restriction', opts:[['none','None',0],['restricted','Muzzle / strip / bare paddock',-15]]},
+];
+const DEFAULT_HORSE=Object.fromEntries(HORSE_FIELDS.map(f=>[f.key,f.opts[0][0]]));
+
+function horsePoints(h){
+  let p=0;
+  for(const f of HORSE_FIELDS){ const o=f.opts.find(o=>o[0]===h[f.key]); if(o) p+=o[2]; }
+  return p;
+}
+const horseMult=h=>clamp(1 + horsePoints(h)/100, 0.3, 1.8);
+
+/* ============================ STATE ============================ */
+let DAYS=[];          // [{date,tmin,tmax,sunFraction,precip,grass}]
+let TODAY_IDX=-1;
+let NOW_HOUR=null;
+let PLACE='';
+let horse={...DEFAULT_HORSE};
+let chart=null;
+let chartH=null;
+
+/* ============================ SCORING GLUE ============================ */
+function computeNow(){
+  if(TODAY_IDX<0) return null;
+  const t=DAYS[TODAY_IDX];
+  const y=DAYS[TODAY_IDX-1];
+  // short accumulation memory: today weighted most
+  let grass = y ? 0.7*t.grass + 0.3*y.grass : t.grass;
+  // precip context
+  const win=DAYS.slice(Math.max(0,TODAY_IDX-6),TODAY_IDX+1);
+  const sum=a=>a.reduce((s,x)=>s+(x.precip||0),0);
+  const half=Math.ceil(win.length/2);
+  const latterMild = win.slice(half).some(x=>x.tmax>10);
+  grass = clamp(grass + precipMod(sum(win), sum(win.slice(0,half)), sum(win.slice(half)), latterMild),0,100);
+  const grassBase = grass;                         // standing level before time-of-day
+  const hour = NOW_HOUR==null ? 14 : NOW_HOUR;
+  grass = clamp(grassBase * diurnalFactor(hour, t.tmin),0,100);
+  const risk = clamp(Math.round(grass*horseMult(horse)),1,100);
+  return {grassBase, grass:Math.round(grass), risk, day:t, hour};
+}
+
+function band(v){
+  if(v<=25) return {name:'Low',      color:getVar('--low'),  advice:'Normal grazing is fine for most horses. Keep an eye on any at-risk individuals.'};
+  if(v<=50) return {name:'Moderate', color:getVar('--mid'),  advice:'Watch at-risk horses. Consider shorter turnout or a muzzle for good-doers, EMS or PPID horses.'};
+  if(v<=75) return {name:'High',     color:getVar('--high'), advice:'Grass sugars are likely elevated. Restrict grazing for at-risk horses — muzzle, strip-graze or a bare paddock.'};
+  return           {name:'Very high',color:getVar('--high'), advice:'Peak sugar conditions. Keep laminitis-prone horses off grass — use a dry lot with low-sugar forage.'};
+}
+const getVar=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// green -> amber -> red interpolation
+function riskColor(v){
+  const lerp=(a,b,t)=>a+(b-a)*t, hex=c=>c.slice(1).match(/../g).map(x=>parseInt(x,16));
+  const A=hex(getVar('--low')),B=hex(getVar('--mid')),C=hex(getVar('--high'));
+  let from,to,t;
+  if(v<50){from=A;to=B;t=v/50;} else {from=B;to=C;t=(v-50)/50;}
+  const c=from.map((x,i)=>Math.round(lerp(x,to[i],clamp(t,0,1))));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+/* ============================ GAUGE ============================ */
+// 240-degree arc, from 150deg (bottom-left) sweeping to -30deg (bottom-right)
+const GC={cx:118,cy:124,r:92,start:150,end:-90}; // start->end = 240deg clockwise
+function polar(cx,cy,r,deg){const a=(deg)*Math.PI/180; return [cx+r*Math.cos(a), cy - r*Math.sin(a)];}
+function arcPath(frac){
+  const a0=GC.start, a1=GC.start + (GC.end-GC.start)*clamp(frac,0,1);
+  const [x0,y0]=polar(GC.cx,GC.cy,GC.r,a0), [x1,y1]=polar(GC.cx,GC.cy,GC.r,a1);
+  const large = Math.abs(a0-a1)>180?1:0;
+  return `M ${x0} ${y0} A ${GC.r} ${GC.r} 0 ${large} 1 ${x1} ${y1}`;
+}
+function drawGauge(v){
+  document.getElementById('track').setAttribute('d',arcPath(1));
+  const arc=document.getElementById('arc');
+  arc.setAttribute('d',arcPath(v/100));
+  arc.setAttribute('stroke',riskColor(v));
+  const gv=document.getElementById('gVal'); gv.textContent=v; gv.style.color=riskColor(v);
+}
+
+/* ============================ DRIVER CHIPS ============================ */
+function drivers(day, hour){
+  const c=[];
+  if(day.tmin<0) c.push(['Frost overnight','up']);
+  else if(day.tmin<5) c.push(['Cold night','up']);
+  else if(day.tmin>=10) c.push(['Mild night — grass burns sugar','down']);
+  if(day.sunFraction>0.6) c.push(['Bright sun','up']);
+  else if(day.sunFraction<0.25) c.push(['Overcast','down']);
+  if(day.tmin<2 && day.sunFraction>0.5) c.push(['Frost + sun (peak)','up']);
+  return c;
+}
+
+/* ============================ RENDER ============================ */
+function renderNow(){
+  const r=computeNow(); if(!r) return;
+  document.getElementById('hero').hidden=false;
+  document.getElementById('horsePanel').hidden=false;
+  document.getElementById('hourlyPanel').hidden=false;
+  document.getElementById('chartPanel').hidden=false;
+  drawGauge(r.risk);
+  const b=band(r.risk);
+  const gv=document.getElementById('gVerdict'); gv.textContent=b.name; gv.style.color=riskColor(r.risk);
+  document.getElementById('gAdvice').textContent=b.advice;
+
+  const chips=document.getElementById('chips'); chips.innerHTML='';
+  for(const [txt,dir] of drivers(r.day,r.hour)){
+    const el=document.createElement('span'); el.className='chip '+dir;
+    el.innerHTML=`<span class="dot" style="background:${dir==='up'?'var(--high)':'var(--low)'}"></span>${txt}`;
+    chips.appendChild(el);
+  }
+
+  const win=document.getElementById('window');
+  if(r.day.tmin<3){
+    win.innerHTML='<b>Turnout:</b> nights are cold, so sugars stay high even at dawn. Wait until well after any frost has thawed and the grass has warmed.';
+  }else{
+    win.innerHTML='<b>Best turnout window:</b> late night to mid-morning (before ~10am), when sugars are lowest. Avoid late afternoon (~3–5pm), the daily peak.';
+  }
+
+  const hh = r.hour==null?'' : ` · ${String(r.hour).padStart(2,'0')}:00 local`;
+  document.getElementById('meta').textContent = `Now${hh}${PLACE?' · '+PLACE:''} · grass-only ${r.grass}/100`;
+  updateMultNote();
+}
+
+function updateMultNote(){
+  const m=horseMult(horse), n=document.getElementById('multNote');
+  const p=horsePoints(horse);
+  const label = p===0?' (average horse)' : (p>0?' (higher risk)':' (lower risk)');
+  n.textContent=`Adjustment: ×${m.toFixed(2)}${label}`;
+}
+
+// Shared plugin: faint horizontal risk bands + a vertical marker read from chart.$marker.
+const bandsPlugin={id:'bands',beforeDraw(c){
+  const {ctx,chartArea:a,scales:{y,x}}=c; if(!a) return;
+  const zone=(lo,hi,col)=>{const y1=y.getPixelForValue(hi),y2=y.getPixelForValue(lo);ctx.save();ctx.fillStyle=col;ctx.fillRect(a.left,y1,a.right-a.left,y2-y1);ctx.restore();};
+  zone(0,25,'rgba(63,163,77,.07)');zone(25,50,'rgba(232,167,59,.07)');zone(50,75,'rgba(208,64,46,.06)');zone(75,100,'rgba(208,64,46,.12)');
+  const mk=c.$marker;
+  if(mk && mk.idx>=0){const px=x.getPixelForValue(mk.idx);ctx.save();ctx.strokeStyle='rgba(28,38,33,.4)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(px,a.top);ctx.lineTo(px,a.bottom);ctx.stroke();
+    ctx.setLineDash([]);ctx.fillStyle='#5E6B62';ctx.font='11px Inter';ctx.textAlign='center';ctx.fillText(mk.label,px,a.top-2);ctx.restore();}
+}};
+const chartOpts=(yTitle)=>({responsive:true,maintainAspectRatio:false,animation:false,
+  scales:{y:{min:0,max:100,ticks:{stepSize:25},grid:{color:'rgba(28,38,33,.06)'},title:{display:true,text:yTitle}},
+          x:{grid:{display:false}}},
+  plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y}`}}}});
+const lineDatasets=(horseR,grass)=>[
+  {label:'Your horse',data:horseR,borderColor:getVar('--brand'),backgroundColor:'rgba(47,109,91,.08)',
+   fill:true,tension:.3,borderWidth:2.5,pointRadius:horseR.length>24?0:3,
+   pointBackgroundColor:horseR.map(riskColor),pointBorderColor:'#fff',pointBorderWidth:1},
+  {label:'Grass only',data:grass,borderColor:'#9fb3a8',borderDash:[5,4],fill:false,tension:.3,borderWidth:2,pointRadius:0}
+];
+
+function renderChart(){
+  const ctx=document.getElementById('chart'); if(!window.Chart){ctx.parentElement.innerHTML='<p class="sub">Chart didn\u2019t load (needs internet).</p>';return;}
+  const m=horseMult(horse);
+  const labels=DAYS.map(d=>{const dt=new Date(d.date+'T00:00'); return dt.toLocaleDateString('en-GB',{weekday:'short',day:'numeric'});});
+  const grass=DAYS.map(d=>Math.round(d.grass));
+  const horseR=DAYS.map(d=>clamp(Math.round(d.grass*m),1,100));
+  const data={labels,datasets:lineDatasets(horseR,grass)};
+  if(chart){chart.data=data; chart.$marker={idx:TODAY_IDX,label:'today'}; chart.update();}
+  else{chart=new Chart(ctx,{type:'line',data,options:chartOpts('Risk (1–100)'),plugins:[bandsPlugin]}); chart.$marker={idx:TODAY_IDX,label:'today'}; chart.update();}
+}
+
+// Today, hour by hour: same standing level as the gauge, shaped by time of day.
+function renderHourly(){
+  const ctx=document.getElementById('chartHourly'); if(!window.Chart){return;}
+  const r=computeNow(); if(!r) return;
+  const m=horseMult(horse);
+  const labels=[], grass=[], horseR=[];
+  for(let h=0;h<24;h++){
+    const hg=clamp(r.grassBase*diurnalFactor(h,r.day.tmin),0,100);
+    labels.push(h%3===0?String(h).padStart(2,'0')+':00':'');
+    grass.push(Math.round(hg));
+    horseR.push(clamp(Math.round(hg*m),1,100));
+  }
+  const data={labels,datasets:lineDatasets(horseR,grass)};
+  const mk={idx:(r.hour==null?-1:r.hour),label:'now'};
+  if(chartH){chartH.data=data; chartH.$marker=mk; chartH.update();}
+  else{chartH=new Chart(ctx,{type:'line',data,options:chartOpts('Risk (1–100)'),plugins:[bandsPlugin]}); chartH.$marker=mk; chartH.update();}
+}
+
+function renderAll(){ renderNow(); renderHourly(); renderChart(); }
+
+/* ============================ CONTROLS UI ============================ */
+function buildControls(){
+  const wrap=document.getElementById('controls'); wrap.innerHTML='';
+  for(const f of HORSE_FIELDS){
+    const field=document.createElement('div'); field.className='field';
+    const lab=document.createElement('label'); lab.textContent=f.label; field.appendChild(lab);
+    const seg=document.createElement('div'); seg.className='seg';
+    for(const [val,txt] of f.opts){
+      const b=document.createElement('button'); b.type='button'; b.textContent=txt;
+      b.setAttribute('aria-pressed', horse[f.key]===val);
+      b.onclick=()=>{horse[f.key]=val; [...seg.children].forEach(c=>c.setAttribute('aria-pressed',c===b)); save(); renderAll();};
+      seg.appendChild(b);
+    }
+    field.appendChild(seg); wrap.appendChild(field);
+  }
+}
+document.getElementById('reset').onclick=()=>{horse={...DEFAULT_HORSE}; buildControls(); save(); renderAll();};
+
+/* ============================ DATA (Open-Meteo) ============================ */
+const setStatus=(t,err=false)=>{const s=document.getElementById('status');s.textContent=t;s.className='status'+(err?' err':'');};
+const OFFLINE_MSG="Couldn't reach the weather service. If you're viewing this inside the Claude chat preview it blocks internet access — open this file in a browser, or host it, and the postcode and location buttons will work.";
+
+// Looks like a UK postcode (full "CW4 8HJ" or just the outward code "CW4")?
+const UK_FULL=/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
+const UK_OUT =/^[A-Z]{1,2}\d[A-Z\d]?$/i;
+
+async function ukPostcode(q){
+  const pc=q.replace(/\s+/g,'').toUpperCase();
+  if(UK_FULL.test(q.trim())){
+    const r=await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`);
+    if(r.ok){const j=await r.json(); if(j.result) return {lat:j.result.latitude,lon:j.result.longitude,
+      name:[j.result.postcode,j.result.admin_district].filter(Boolean).join(', ')};}
+  }
+  if(UK_FULL.test(q.trim())||UK_OUT.test(q.trim())){          // fall back to outward code
+    const out=UK_OUT.test(q.trim()) ? pc : pc.slice(0,-3);    // inward is always last 3 chars
+    const r=await fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(out)}`);
+    if(r.ok){const j=await r.json(); if(j.result) return {lat:j.result.latitude,lon:j.result.longitude,
+      name:[j.result.outcode,(j.result.admin_district||[])[0]].filter(Boolean).join(', ')};}
+  }
+  return null;
+}
+
+async function geocode(q){
+  const pc=await ukPostcode(q);            // try UK postcode first
+  if(pc) return pc;
+  const u=`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`;
+  const r=await fetch(u); if(!r.ok) throw new Error('geocode'); const j=await r.json();
+  if(!j.results||!j.results.length) throw new Error('notfound');
+  const g=j.results[0]; return {lat:g.latitude,lon:g.longitude,name:[g.name,g.admin1].filter(Boolean).join(', ')};
+}
+async function fetchWeather(lat,lon,name){
+  const u=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+    +`&daily=temperature_2m_max,temperature_2m_min,sunshine_duration,daylight_duration,precipitation_sum`
+    +`&current=temperature_2m&timezone=auto&past_days=7&forecast_days=7`;
+  const r=await fetch(u); if(!r.ok) throw new Error('weather'); const j=await r.json();
+  const d=j.daily;
+  DAYS=d.time.map((date,i)=>{
+    const dl=d.daylight_duration[i]||1, ss=d.sunshine_duration[i]||0;
+    const day={date,tmin:d.temperature_2m_min[i],tmax:d.temperature_2m_max[i],
+               sunFraction:clamp(ss/dl,0,1),precip:d.precipitation_sum[i]||0};
+    day.grass=dailyGrassScore(day); return day;
+  });
+  const nowLocal = j.current&&j.current.time ? j.current.time : null; // "YYYY-MM-DDTHH:MM"
+  const today = nowLocal ? nowLocal.slice(0,10) : d.time[7];
+  TODAY_IDX = d.time.indexOf(today); if(TODAY_IDX<0) TODAY_IDX=Math.min(7,d.time.length-1);
+  NOW_HOUR = nowLocal ? parseInt(nowLocal.slice(11,13),10) : null;
+  PLACE=name||''; save();
+}
+
+async function run(q){
+  try{
+    setStatus('Finding location…');
+    const g=await geocode(q);
+    setStatus('Loading weather…');
+    await fetchWeather(g.lat,g.lon,g.name);
+    setStatus(`Showing ${g.name}. Live data from Open-Meteo.`);
+    renderAll();
+  }catch(e){
+    if(e.message==='notfound') setStatus(`Couldn't find "${q}". Try a postcode or a nearby town.`,true);
+    else setStatus(OFFLINE_MSG,true);
+  }
+}
+
+document.getElementById('go').onclick=()=>{const q=document.getElementById('loc').value.trim(); if(q) run(q);};
+document.getElementById('loc').addEventListener('keydown',e=>{if(e.key==='Enter'){const q=e.target.value.trim(); if(q) run(q);}});
+document.getElementById('geo').onclick=()=>{
+  if(!navigator.geolocation){setStatus('Geolocation not available.',true);return;}
+  setStatus('Getting your location…');
+  navigator.geolocation.getCurrentPosition(async p=>{
+    try{ await fetchWeather(p.coords.latitude,p.coords.longitude,'your location');
+      setStatus('Showing your location. Live data from Open-Meteo.'); renderAll();
+    }catch(e){ setStatus(OFFLINE_MSG,true); }
+  }, ()=>setStatus('Location permission denied.',true));
+};
+
+/* ============================ PERSISTENCE ============================ */
+function save(){ try{ localStorage.setItem('laminrisk',JSON.stringify({loc:document.getElementById('loc').value,horse})); }catch(e){} }
+function load(){
+  try{ const s=JSON.parse(localStorage.getItem('laminrisk')||'{}');
+    if(s.horse) horse={...DEFAULT_HORSE,...s.horse};
+    if(s.loc) document.getElementById('loc').value=s.loc;
+    return s.loc;
+  }catch(e){ return null; }
+}
+
+/* ============================ INIT ============================ */
+buildControls();
+const savedLoc=load();
+buildControls();               // reflect restored horse selections
+if(savedLoc) run(savedLoc);
+</script>
+</body>
+</html>
