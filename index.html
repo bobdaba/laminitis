@@ -57,11 +57,11 @@
 
   /* gauge / hero */
   .hero{background:var(--surface); border:1px solid var(--hair); border-radius:var(--radius); box-shadow:var(--shadow); padding:22px 20px 20px; text-align:center; margin-top:14px}
-  .gauge{position:relative; width:236px; height:196px; margin:2px auto 0}
-  .gauge svg{display:block}
-  .gauge .readout{position:absolute; left:0; right:0; top:64px}
-  .gauge .value{font-family:"Space Grotesk"; font-weight:700; font-size:66px; line-height:1; letter-spacing:-.02em}
-  .gauge .of{font-size:13px; color:var(--muted); margin-top:2px}
+  .gauge{width:100%; max-width:300px; margin:2px auto 0}
+  .gauge svg{display:block; width:100%; height:auto}
+  .g-score{font-family:"Space Grotesk",Inter,sans-serif; font-weight:700; font-size:46px; letter-spacing:-.01em}
+  .g-of{font-family:Inter,sans-serif; font-size:13px; fill:var(--muted)}
+  .g-zone{font-family:Inter,sans-serif; font-weight:600; font-size:10.5px; letter-spacing:.12em; fill:#9aa39c}
   .verdict{font-family:"Space Grotesk"; font-weight:600; font-size:22px; margin-top:6px}
   .advice{font-size:15px; color:var(--ink); max-width:44ch; margin:8px auto 0}
   .meta{font-size:12.5px; color:var(--muted); margin-top:12px}
@@ -134,14 +134,48 @@
   <!-- NOW gauge -->
   <section class="hero" id="hero" hidden>
     <div class="gauge">
-      <svg viewBox="0 0 236 196" width="236" height="196" aria-hidden="true">
-        <path id="track" fill="none" stroke="#E4E9E4" stroke-width="18" stroke-linecap="round"/>
-        <path id="arc"   fill="none" stroke="#3FA34D" stroke-width="18" stroke-linecap="round"/>
+      <svg viewBox="0 0 320 320" role="img" aria-label="Laminitis risk gauge">
+        <defs>
+          <radialGradient id="gBezel" cx="35%" cy="30%" r="75%">
+            <stop offset="0%" stop-color="#f4f6f7"/><stop offset="45%" stop-color="#cfd4d8"/>
+            <stop offset="78%" stop-color="#9aa0a5"/><stop offset="100%" stop-color="#5c6266"/>
+          </radialGradient>
+          <radialGradient id="gFace" cx="50%" cy="40%" r="72%">
+            <stop offset="0%" stop-color="#ffffff"/><stop offset="80%" stop-color="#f4f6f5"/><stop offset="100%" stop-color="#e7ebe8"/>
+          </radialGradient>
+          <radialGradient id="gHub" cx="38%" cy="32%" r="75%">
+            <stop offset="0%" stop-color="#eef1f2"/><stop offset="55%" stop-color="#aeb4b8"/><stop offset="100%" stop-color="#5f6367"/>
+          </radialGradient>
+          <linearGradient id="gNeedleG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#41454a"/><stop offset="100%" stop-color="#111315"/>
+          </linearGradient>
+          <linearGradient id="gScale" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#43a047"/><stop offset="28%" stop-color="#8bc34a"/>
+            <stop offset="50%" stop-color="#ecc531"/><stop offset="72%" stop-color="#ef8b2c"/><stop offset="100%" stop-color="#d0402e"/>
+          </linearGradient>
+          <filter id="gNShadow" x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="1.4" dy="2.4" stdDeviation="2.2" flood-color="#000" flood-opacity="0.32"/>
+          </filter>
+        </defs>
+        <circle cx="160" cy="160" r="152" fill="url(#gBezel)"/>
+        <circle cx="160" cy="160" r="152" fill="none" stroke="#4a4f53" stroke-width="1.5"/>
+        <g id="gKnurl" stroke="#7f858a" stroke-width="1"></g>
+        <circle cx="160" cy="160" r="128" fill="#33373a"/>
+        <circle cx="160" cy="160" r="120" fill="url(#gFace)"/>
+        <path id="gBand" fill="none" stroke="url(#gScale)" stroke-width="15"/>
+        <g id="gTicks"></g>
+        <text class="g-zone" id="gZlow"  text-anchor="middle">LOW</text>
+        <text class="g-zone" id="gZhigh" text-anchor="middle">HIGH</text>
+        <text class="g-score" id="gVal" x="160" y="226" text-anchor="middle" fill="var(--low)">–</text>
+        <text class="g-of" x="160" y="246" text-anchor="middle">out of 100</text>
+        <g id="gNeedle" filter="url(#gNShadow)">
+          <path d="M160 62 L165.5 166 L154.5 166 Z" fill="url(#gNeedleG)"/>
+          <path d="M154 167 L166 167 L161.5 186 L158.5 186 Z" fill="#26292c"/>
+        </g>
+        <circle cx="160" cy="160" r="17" fill="url(#gHub)"/>
+        <circle cx="160" cy="160" r="9" fill="#3a3e42"/>
+        <circle cx="155" cy="155" r="3" fill="#ffffff" opacity="0.5"/>
       </svg>
-      <div class="readout">
-        <div class="value" id="gVal">–</div>
-        <div class="of">out of 100</div>
-      </div>
     </div>
     <div class="verdict" id="gVerdict">—</div>
     <p class="advice" id="gAdvice"></p>
@@ -369,21 +403,29 @@ function riskColor(v){
 }
 
 /* ============================ GAUGE ============================ */
-// 240-degree arc, from 150deg (bottom-left) sweeping to -30deg (bottom-right)
-const GC={cx:118,cy:124,r:92,start:150,end:-90}; // start->end = 240deg clockwise
-function polar(cx,cy,r,deg){const a=(deg)*Math.PI/180; return [cx+r*Math.cos(a), cy - r*Math.sin(a)];}
-function arcPath(frac){
-  const a0=GC.start, a1=GC.start + (GC.end-GC.start)*clamp(frac,0,1);
-  const [x0,y0]=polar(GC.cx,GC.cy,GC.r,a0), [x1,y1]=polar(GC.cx,GC.cy,GC.r,a1);
-  const large = Math.abs(a0-a1)>180?1:0;
-  return `M ${x0} ${y0} A ${GC.r} ${GC.r} 0 ${large} 1 ${x1} ${y1}`;
-}
+// Skeuomorphic dial: full green->red scale over the top ~210deg; needle points to the score.
+const GA={cx:160,cy:160,start:-105,sweep:210}; // clock degrees: 0 = top, + = clockwise
+function gPt(r,d){const a=d*Math.PI/180; return [GA.cx+r*Math.sin(a), GA.cy-r*Math.cos(a)];}
+function gAng(s){return GA.start + (clamp(s,0,100)/100)*GA.sweep;}
+(function buildGauge(){
+  let kn='';
+  for(let i=0;i<120;i++){const d=i*3,[x1,y1]=gPt(141,d),[x2,y2]=gPt(151,d);
+    kn+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;}
+  document.getElementById('gKnurl').innerHTML=kn;
+  const [bx1,by1]=gPt(106,GA.start),[bx2,by2]=gPt(106,GA.start+GA.sweep);
+  document.getElementById('gBand').setAttribute('d',`M${bx1.toFixed(2)} ${by1.toFixed(2)} A106 106 0 1 1 ${bx2.toFixed(2)} ${by2.toFixed(2)}`);
+  let tk='';
+  for(let s=0;s<=100;s+=2){const d=gAng(s),[ox,oy]=gPt(96,d),[ix,iy]=gPt(90.5,d);
+    tk+=`<line x1="${ox.toFixed(1)}" y1="${oy.toFixed(1)}" x2="${ix.toFixed(1)}" y2="${iy.toFixed(1)}" stroke="#2b2f2c" stroke-width="1"/>`;}
+  for(let s=0;s<=100;s+=10){const d=gAng(s),[ox,oy]=gPt(96,d),[ix,iy]=gPt(83,d);
+    tk+=`<line x1="${ox.toFixed(1)}" y1="${oy.toFixed(1)}" x2="${ix.toFixed(1)}" y2="${iy.toFixed(1)}" stroke="#1c211e" stroke-width="2.2"/>`;}
+  document.getElementById('gTicks').innerHTML=tk;
+  const [lx,ly]=gPt(106,gAng(7));  const zl=document.getElementById('gZlow');  zl.setAttribute('x',lx); zl.setAttribute('y',ly+3);
+  const [hx,hy]=gPt(106,gAng(93)); const zh=document.getElementById('gZhigh'); zh.setAttribute('x',hx); zh.setAttribute('y',hy+3);
+})();
 function drawGauge(v){
-  document.getElementById('track').setAttribute('d',arcPath(1));
-  const arc=document.getElementById('arc');
-  arc.setAttribute('d',arcPath(v/100));
-  arc.setAttribute('stroke',riskColor(v));
-  const gv=document.getElementById('gVal'); gv.textContent=v; gv.style.color=riskColor(v);
+  document.getElementById('gNeedle').setAttribute('transform',`rotate(${gAng(v).toFixed(2)} 160 160)`);
+  const gv=document.getElementById('gVal'); gv.textContent=Math.round(v); gv.setAttribute('fill',riskColor(v));
 }
 
 /* ============================ DRIVER CHIPS ============================ */
