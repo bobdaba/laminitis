@@ -233,7 +233,7 @@
 
       <h3>What it uses</h3>
       <ul>
-        <li><b>Weather</b> — <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (free, no account): daily high and low temperature, sunshine hours, day length and rainfall, plus the current temperature, for the last 7 days and the 7 days ahead, in your local time.</li>
+        <li><b>Weather</b> — <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (free, no account): daily high and low temperature, sunshine hours, day length, rainfall, plus hourly temperature, dew point, cloud cover and wind for the dew estimate, and the current temperature, for the last 7 days and the 7 days ahead, in your local time.</li>
         <li><b>Location</b> — UK postcodes via <a href="https://postcodes.io" target="_blank" rel="noopener">postcodes.io</a> (a full postcode, or just the area code like CW4), any place name via Open-Meteo, or your device's location.</li>
         <li><b>Your horse</b> — the settings you choose, saved in your browser on this device so they're ready next time.</li>
       </ul>
@@ -264,6 +264,10 @@
 
       <h3>Today, hour by hour</h3>
       <p>The hourly chart takes the same grass level as the gauge and shapes it across 24 hours with that time-of-day factor, marking the current hour. On a mild day you'll see a low-morning, afternoon-peak curve; after a cold night the line stays flat and high — the sign that the early-morning turnout window isn't safe that day.</p>
+
+      <h3>Morning dew</h3>
+      <p>Dew is estimated from the hourly forecast between midnight and 7&nbsp;am. On clear, still nights grass loses heat to the sky and gets colder than the air, by up to about 3&nbsp;°C, less with cloud and none in a stiff breeze (7&nbsp;m/s or more). An hour counts as wet when the estimated grass temperature is within 1&nbsp;°C of the dew point. Three or more wet hours, with no real overnight rain, means dew is likely. This is an estimate: dew isn't measured, and a sheltered or open paddock can differ from the forecast.</p>
+      <p>Dew doesn't add sugar to grass, so it <b>doesn't change the score</b>. The cold, clear nights that bring dew are already counted through the overnight low. When dew is likely on a mild night, the turnout note says so: an early turnout is still the lowest-sugar time, and there's no need to wait for the grass to dry. "Wait until the dew's gone" really means "wait until the grass has warmed", and that only matters after a cold or frosty night, which the cold-night turnout note already covers.</p>
 
       <h3>Last 7 days &amp; forecast</h3>
       <p>Each day's grass score is multiplied by your horse's factor and plotted for the past week and the week ahead, split by the "today" line. The dashed line is the grass-only (weather) score, for comparison.</p>
@@ -334,6 +338,24 @@ function diurnalFactor(hour, lastNightMin){
   let f = 0.85 + 0.20*frac;                       // 0.85 .. 1.05
   if(lastNightMin < 5) f = Math.max(f, 1.0);      // cold night: no dawn benefit
   return f;
+}
+
+// Morning dew estimate from hourly data, 00:00-07:00 local on that date.
+// Grass cools below the 2 m air temperature on clear, still nights (up to ~3 C);
+// an hour is "wet" when the estimated grass temperature is within 1 C of the dew point.
+function dewLikely(h,date){
+  if(!h) return false;
+  let wet=0, rain=0;
+  for(let i=0;i<h.time.length;i++){
+    if(h.time[i].slice(0,10)!==date || +h.time[i].slice(11,13)>7) continue;
+    const T=h.temperature_2m[i], Td=h.dew_point_2m[i];
+    if(T==null||Td==null) continue;
+    const wind=clamp((7-(h.wind_speed_10m[i]??7))/4,0,1);     // full cooling <=3 m/s, none >=7 m/s
+    const cool=3*(1-(h.cloud_cover[i]??100)/100)*wind;
+    if((T-Td)-cool<=1) wet++;
+    rain+=h.precipitation[i]||0;
+  }
+  return wet>=3 && rain<0.5;                                     // rain-wet grass isn't dew
 }
 
 // Horse susceptibility -> multiplier (0.3 .. 1.8), default 1.0.
@@ -463,7 +485,8 @@ function renderNow(){
   if(r.day.tmin<3){
     win.innerHTML='<b>Turnout:</b> nights are cold, so sugars stay high even at dawn. Wait until well after any frost has thawed and the grass has warmed.';
   }else{
-    win.innerHTML='<b>Best turnout window:</b> late night to mid-morning (before ~10am), when sugars are lowest. Avoid late afternoon (~3–5pm), the daily peak.';
+    win.innerHTML='<b>Best turnout window:</b> late night to mid-morning (before ~10am), when sugars are lowest. Avoid late afternoon (~3–5pm), the daily peak.'
+      + (r.day.dew ? ' Dew is likely this morning. Wet grass doesn\u2019t carry more sugar, so there\u2019s no need to wait for it to dry.' : '');
   }
 
   const hh = r.hour==null?'' : ` · ${String(r.hour).padStart(2,'0')}:00 local`;
@@ -582,6 +605,7 @@ async function geocode(q){
 async function fetchWeather(lat,lon,name){
   const u=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
     +`&daily=temperature_2m_max,temperature_2m_min,sunshine_duration,daylight_duration,precipitation_sum`
+    +`&hourly=temperature_2m,dew_point_2m,cloud_cover,wind_speed_10m,precipitation&wind_speed_unit=ms`
     +`&current=temperature_2m&timezone=auto&past_days=7&forecast_days=7`;
   const r=await fetch(u); if(!r.ok) throw new Error('weather'); const j=await r.json();
   const d=j.daily;
@@ -589,6 +613,7 @@ async function fetchWeather(lat,lon,name){
     const dl=d.daylight_duration[i]||1, ss=d.sunshine_duration[i]||0;
     const day={date,tmin:d.temperature_2m_min[i],tmax:d.temperature_2m_max[i],
                sunFraction:clamp(ss/dl,0,1),precip:d.precipitation_sum[i]||0};
+    day.dew=dewLikely(j.hourly,date);
     day.grass=dailyGrassScore(day); return day;
   });
   const nowLocal = j.current&&j.current.time ? j.current.time : null; // "YYYY-MM-DDTHH:MM"
